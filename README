@@ -1,0 +1,432 @@
+/*
+Yuntao Li
+yli346@jh.edu
+
+Fangjie Li
+fli35@jh.edu
+*/
+We consider there are three factors for every cache configurations. The first 
+factor is either "direct-mapped", "m-way set-associative", and "fully 
+associative". The second factor is either "write-allocate and write back", 
+"write-allocate and write-through" or "no-write-allocate and write-through". 
+The third factor is either "LRU" or "fifo". Therefore, we have 3x3x2 = 18 types
+of cache configuration.   
+
+For this experiment, we set "direct-mapped" as 256 sets of 1 block, "m-way set-
+associative" as 64 sets of 4 block and "fully associative" as 1 set of 256 
+block. We choose this setting to ensure a constant total memory size for each 
+cache configuration.
+
+We ran all combinations of these factors mentioned above on both gcc.trace and 
+swim.trace and attached the raw data below. We selected these two files 
+because gcc.trace and swim.trace are traces from real programs. Therefore we 
+could have a fairly accurate estimation about how these configurations will 
+work in real programming.
+
+# Choice of Metrics
+The goal of this investigation is to determine the "best" cache configuration.
+The condition of "best" is interpreted as having the best runtime performance,
+achieved with minimal resources. Hence 2 metrics are the most relevant: the 
+total cycle count, the cache size. Whilest, the overall hit ratio and miss 
+penalty are helpful for analysis of the performance.
+
+# Individual Factor Analysis
+Firstly, the impact of each individual factor of the configuration is analysed 
+separately. Among "direct-mapped", "set-associative" and "fully-associative",
+"fully-associative" has the least cycle counts, whilst "set-associative" is 
+very close behind, both surpassing "direct-mapped' by a notable margin. This 
+reflects the flexibility of cache associativity. In terms of miss rate, 
+"set-associative" and "fully-associative" are similar, again with "fully-
+associative" having a marginal advantage. Storage size wise, all three are 
+identical.
+
+Noticeably, the difference is highly trace dependent. For gcc.trace, "fully-
+associative" is approximately 8-9% faster than "set-associative", but for 
+swim.trace, the difference is less than 4%. "However, the differnece is not 
+large enough for us to conclude that "fully-associative" is better than "set
+-associative". We will further discuss about it when taking other performance 
+properties.
+
+Secondly, the performance of LRU and FIFO are compared. In virtually all 
+setups, LRU enjoys a lower cycle counts and similarly lower miss rate. Both 
+require the same extra counter for each block, making the size requirement the 
+same. Therefore, LRU may be considered superior. However, if the extra overhead
+from more frequent counter update diminishes its real temporal efficiency, then
+FIFO would be favoured for its better runtime complexity.
+
+Lastly, the three possible write strategies are tested. In all cases, "write-
+allocate, write-back" and "no-write-allocate, write-through" has significantly
+fewer cycle counts than "write-allocate, write-through". This is not surprising
+as the latter essentially execute the memory write operations of the two former
+strategies combined. Between the two former strategies, the performance is 
+trace dependent. "write-allocate, write-back" is superior for gcc.trace, and 
+ther reverse for swim.trace. This can be explained by the difference in write
+characteristic of the code, where code with more rewrites (i.e. exploiting 
+localities) are more benefited by "write-allocate, write-back".
+
+In addition, miss rate wise, "write-allocate, write-back" performs much better.
+Typically a miss cost 50-200 cycles for main memory and the trend is increasing.
+One implication is that if the miss penalty is increased, then it will likely 
+have a significant edge over "no-write-allocate, write-through". However, 
+"write-back" requires 1 extra dirty bit for each block. Luckily, the increase 
+in memory is small (< 1%).
+
+# The "Best" configuration
+Even individual factors are shown to be difficult to compare, let alone 
+choosing the best combination of them. 
+If aforementioned overhead cost is an issue, then a set-associative, write-
+allocate, write-back cache would alleviate it without losing musch of the gain. 
+However, such cache is highly reliant on code exploting locality to function
+efficiently.
+Generally speaking, a set-associative,
+write-allocate, write-back cache would promise the lowest cycle count and miss 
+rate, and therefore be the configuration that has the best overall effectiveness.
+However, such set would have notable overhead cost from the associativity,
+with some space penalty for the dirty bit. Nonetheless, it is the most resilient
+to increasing miss penalty.
+
+Contribution:
+Fangjie Li
+1. construct the overall data and class structure for the simulator
+2. implemented save/load methods, trace input functions, and implemented the evict strategies as a group.
+3. debugged the entire programme together as a group.
+4. ran LRU of the tests for the best cache analysis
+Yuntao Li
+1. Write input handling.
+2. Implement the timestamp of cache and evict strategies.
+3. debugged the entire programme together as a group
+4. ran FIFO of the tests for the best cache analysis
+
+
+Raw data:
+./csim 256 1 16 write-allocate write-back fifo < ./tests/gcc.trace
+Total loads: 318197
+Toatal stores: 197486
+Load hits: 298863
+Load misses: 19334
+Store hits: 185202
+Store misses: 12284
+Total cycles: 20312483
+
+./csim 64 4 16 write-allocate write-back fifo < ./tests/gcc.trace
+Total loads: 318197
+Toatal stores: 197486
+Load hits: 310136
+Load misses: 8061
+Store hits: 186911
+Store misses: 10575
+Total cycles: 13002483
+
+./csim 1 256 16 write-allocate write-back fifo < ./tests/gcc.trace
+Total loads: 318197
+Toatal stores: 197486
+Load hits: 311025
+Load misses: 7172
+Store hits: 186977
+Store misses: 10509
+Total cycles: 12461283
+
+./csim 256 1 16 write-allocate write-through fifo < ./tests/gcc.trace
+Total loads: 318197
+Toatal stores: 197486
+Load hits: 298863
+Load misses: 19334
+Store hits: 185202
+Store misses: 12284
+Total cycles: 32911483
+
+./csim 64 4 16 write-allocate write-through fifo < ./tests/gcc.trace
+Total loads: 318197
+Toatal stores: 197486
+Load hits: 310136
+Load misses: 8061
+Store hits: 186911
+Store misses: 10575
+Total cycles: 27718683
+
+./csim 1 256 16 write-allocate write-through fifo < ./tests/gcc.trace
+Total loads: 318197
+Toatal stores: 197486
+Load hits: 311025
+Load misses: 7172
+Store hits: 186977
+Store misses: 10509
+Total cycles: 27336683
+
+./csim 256 1 16 no-write-allocate write-through fifo < ./tests/gcc.trace
+Total loads: 318197
+Toatal stores: 197486
+Load hits: 296251
+Load misses: 21946
+Store hits: 158894
+Store misses: 38592
+Total cycles: 29004091
+
+./csim 64 4 16 no-write-allocate write-through fifo < ./tests/gcc.trace
+Total loads: 318197
+Toatal stores: 197486
+Load hits: 307258
+Load misses: 10939
+Store hits: 160277
+Store misses: 37209
+Total cycles: 24602674
+
+./csim 1 256 16 no-write-allocate write-through fifo < ./tests/gcc.trace
+Total loads: 318197
+Toatal stores: 197486
+Load hits: 307970
+Load misses: 10227
+Store hits: 161070
+Store misses: 36416
+Total cycles: 24318667
+
+
+
+./csim 256 1 16 write-allocate write-back fifo < ./tests/swim.trace
+Total loads: 220668
+Toatal stores: 82525
+Load hits: 211533
+Load misses: 9135
+Store hits: 70212
+Store misses: 12313
+Total cycles: 14381193
+
+./csim 64 4 16 write-allocate write-back fifo < ./tests/swim.trace 
+Total loads: 220668
+Toatal stores: 82525
+Load hits: 212965
+Load misses: 7703
+Store hits: 70881
+Store misses: 11644
+Total cycles: 13131193
+
+./csim 1 256 16 write-allocate write-back fifo < ./tests/swim.trace 
+Total loads: 220668
+Toatal stores: 82525
+Load hits: 213099
+Load misses: 7569
+Store hits: 70911
+Store misses: 11614
+Total cycles: 13042793
+
+./csim 256 1 16 write-allocate write-through fifo < ./tests/swim.trace 
+Total loads: 220668
+Toatal stores: 82525
+Load hits: 211533
+Load misses: 9135
+Store hits: 70212
+Store misses: 12313
+Total cycles: 17134893
+
+./csim 64 4 16 write-allocate write-through fifo < ./tests/swim.trace 
+Total loads: 220668
+Toatal stores: 82525
+Load hits: 212965
+Load misses: 7703
+Store hits: 70881
+Store misses: 11644
+Total cycles: 16294493
+
+./csim 1 256 16 write-allocate write-through fifo < ./tests/swim.trace 
+Total loads: 220668
+Toatal stores: 82525
+Load hits: 213099
+Load misses: 7569
+Store hits: 70911
+Store misses: 11614
+Total cycles: 16228893
+
+./csim 256 1 16 no-write-allocate write-through fifo < ./tests/swim.trace 
+Total loads: 220668
+Toatal stores: 82525
+Load hits: 213913
+Load misses: 6755
+Store hits: 56637
+Store misses: 25888
+Total cycles: 11231805
+
+./csim 64 4 16 no-write-allocate write-through fifo < ./tests/swim.trace 
+Total loads: 220668
+Toatal stores: 82525
+Load hits: 215972
+Load misses: 4696
+Store hits: 57372
+Store misses: 25153
+Total cycles: 10408940
+
+./csim 1 256 16 no-write-allocate write-through fifo < ./tests/swim.trace  
+Total loads: 220668
+Toatal stores: 82525
+Load hits: 214478
+Load misses: 6190
+Store hits: 57437
+Store misses: 25088
+Total cycles: 11006605
+
+
+
+./csim 256 1 16 write-allocate write-back lru < ./tests/gcc.trace
+Total loads: 318197
+Total stores: 197486
+Load hits: 298863
+Load misses: 19334
+Store hits: 185202
+Store misses: 12284
+Total cycles: 20312483
+
+./csim 64 4 16 write-allocate write-back lru < ./tests/gcc.trace
+Total loads: 318197
+Total stores: 197486
+Load hits: 312099
+Load misses: 6098
+Store hits: 187526
+Store misses: 9960
+Total cycles: 11414883
+
+./csim 1 256 16 write-allocate write-back lru < ./tests/gcc.trace
+Total loads: 318197
+Total stores: 197486
+Load hits: 313123
+Load misses: 5074
+Store hits: 187653
+Store misses: 9833
+Total cycles: 10802483
+
+./csim 256 1 16 write-allocate write-through lru < ./tests/gcc.trace
+Total loads: 318197
+Total stores: 197486
+Load hits: 298863
+Load misses: 19334
+Store hits: 185202
+Store misses: 12284
+Total cycles: 32911483
+
+./csim 64 4 16 write-allocate write-through lru < ./tests/gcc.trace
+Total loads: 318197
+Total stores: 197486
+Load hits: 312099
+Load misses: 6098
+Store hits: 187526
+Store misses: 9960
+Total cycles: 26687483
+
+./csim 1 256 16 write-allocate write-through lru < ./tests/gcc.trace
+Total loads: 318197
+Total stores: 197486
+Load hits: 313123
+Load misses: 5074
+Store hits: 187653
+Store misses: 9833
+Total cycles: 26227083
+
+./csim 256 1 16 no-write-allocate write-through lru < ./tests/gcc.trace
+Total loads: 318197
+Total stores: 197486
+Load hits: 296251
+Load misses: 21946
+Store hits: 158894
+Store misses: 38592
+Total cycles: 29004091
+
+
+./csim 64 4 16 no-write-allocate write-through lru < ./tests/gcc.trace
+Total loads: 318197
+Total stores: 197486
+Load hits: 309073
+Load misses: 9124
+Store hits: 163467
+Store misses: 34019
+Total cycles: 23879864
+
+./csim 1 256 16 no-write-allocate write-through lru < ./tests/gcc.trace
+Total loads: 318197
+Total stores: 197486
+Load hits: 309777
+Load misses: 8420
+Store hits: 163612
+Store misses: 33874
+Total cycles: 23598409
+
+
+
+./csim 256 1 16 write-allocate write-back lru < ./tests/swim.trace
+Total loads: 220668
+Total stores: 82525
+Load hits: 211533
+Load misses: 9135
+Store hits: 70212
+Store misses: 12313
+Total cycles: 14381193
+
+./csim 64 4 16 write-allocate write-back lru < ./tests/swim.trace 
+Total loads: 220668
+Total stores: 82525
+Load hits: 214923
+Load misses: 5745
+Store hits: 71353
+Store misses: 11172
+Total cycles: 11733193
+
+./csim 1 256 16 write-allocate write-back lru < ./tests/swim.trace 
+Total loads: 220668
+Total stores: 82525
+Load hits: 215319
+Load misses: 5349
+Store hits: 71640
+Store misses: 10885
+Total cycles: 11301193
+
+./csim 256 1 16 write-allocate write-through lru < ./tests/swim.trace 
+Total loads: 220668
+Total stores: 82525
+Load hits: 211533
+Load misses: 9135
+Store hits: 70212
+Store misses: 12313
+Total cycles: 17134893
+
+./csim 64 4 16 write-allocate write-through lru < ./tests/swim.trace 
+Total loads: 220668
+Total stores: 82525
+Load hits: 214923
+Load misses: 5745
+Store hits: 71353
+Store misses: 11172
+Total cycles: 15322493
+
+./csim 1 256 16 write-allocate write-through lru < ./tests/swim.trace 
+Total loads: 220668
+Total stores: 82525
+Load hits: 215319
+Load misses: 5349
+Store hits: 71640
+Store misses: 10885
+Total cycles: 15049293
+
+./csim 256 1 16 no-write-allocate write-through lru < ./tests/swim.trace 
+Total loads: 220668
+Toatal stores: 82525
+Load hits: 213913
+Load misses: 6755
+Store hits: 56637
+Store misses: 25888
+Total cycles: 11231805
+
+./csim 64 4 16 no-write-allocate write-through lru < ./tests/swim.trace 
+Total loads: 220668
+Total stores: 82525
+Load hits: 216713
+Load misses: 3955
+Store hits: 57503
+Store misses: 25022
+Total cycles: 10112671
+
+./csim 1 256 16 no-write-allocate write-through lru < ./tests/swim.trace  
+Total loads: 220668
+Total stores: 82525
+Load hits: 216991
+Load misses: 3677
+Store hits: 57601
+Store misses: 24924
+Total cycles: 10001569
+
